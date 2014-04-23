@@ -20,6 +20,22 @@
 
 typedef void(^CWDelayedBlockHandle)(BOOL cancel);
 
+@interface NotificationWindow : UIWindow
+
+@end
+
+@implementation NotificationWindow
+
+- (UIView*) hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    if (CGRectContainsPoint([[UIApplication sharedApplication] statusBarFrame], point)) {
+        return [super hitTest:point withEvent:event];
+    }
+
+    return nil;
+}
+
+@end
+
 static CWDelayedBlockHandle perform_block_after_delay(CGFloat seconds, dispatch_block_t block)
 {
 	if (block == nil) {
@@ -152,10 +168,10 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
         self.tapGestureRecognizer.numberOfTapsRequired = 1;
 
         // create default tap block
-        __weak typeof(self) weakSelf = self;
+        @weaken(self);
         self.notificationTappedBlock = ^(void) {
-            if (!weakSelf.notificationIsDismissing) {
-                [weakSelf dismissNotification];
+            if (!weak_self.notificationIsDismissing) {
+                [weak_self dismissNotification];
             }
         };
     }
@@ -278,7 +294,7 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
 
 - (void)createNotificationWindow
 {
-    self.notificationWindow = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+    self.notificationWindow = [[NotificationWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     self.notificationWindow.backgroundColor = [UIColor clearColor];
     self.notificationWindow.userInteractionEnabled = YES;
     self.notificationWindow.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
