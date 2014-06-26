@@ -17,12 +17,11 @@
 
 @implementation CWWindowContainer
 
-- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
-{
-    if (point.y > 0 && point.y < [UIApplication sharedApplication].statusBarFrame.size.height) {
+- (UIView*) hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    if (CGRectContainsPoint([[UIApplication sharedApplication] statusBarFrame], point)) {
         return [super hitTest:point withEvent:event];
     }
-    
+
     return nil;
 }
 
@@ -275,6 +274,7 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
 }
 
 # pragma mark - display helpers
+
 
 - (void)createNotificationLabelWithMessage:(NSString *)message
 {
