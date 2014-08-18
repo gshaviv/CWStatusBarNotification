@@ -198,18 +198,25 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
         return self.notificationLabelHeight;
     }
     CGFloat statusBarHeight = [[UIApplication sharedApplication] statusBarFrame].size.height;
-    if (UIDeviceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
-        statusBarHeight = [[UIApplication sharedApplication] statusBarFrame].size.width;
+    if ([UIDevice currentSystemVersionIsLessThan:8 :0 :0]) {
+        if (UIDeviceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
+            statusBarHeight = [[UIApplication sharedApplication] statusBarFrame].size.width;
+        }
     }
+
     return statusBarHeight > 0 ? statusBarHeight : 20;
 }
 
 - (CGFloat)getStatusBarWidth
 {
-    if (UIDeviceOrientationIsPortrait([UIApplication sharedApplication].statusBarOrientation)) {
-        return [UIScreen mainScreen].bounds.size.width;
+    if ([UIDevice currentSystemVersionIsLessThan:8 :0 :0]) {
+        if (UIDeviceOrientationIsPortrait([UIApplication sharedApplication].statusBarOrientation)) {
+            return [UIScreen mainScreen].bounds.size.width;
+        }
+        return [UIScreen mainScreen].bounds.size.height;
+    } else {
+        return notificationWindow.bounds.size.width;
     }
-    return [UIScreen mainScreen].bounds.size.height;
 }
 
 - (CGRect)getNotificationLabelTopFrame
