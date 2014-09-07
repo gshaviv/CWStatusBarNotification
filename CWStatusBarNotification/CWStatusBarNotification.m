@@ -198,25 +198,33 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
         return self.notificationLabelHeight;
     }
     CGFloat statusBarHeight = [[UIApplication sharedApplication] statusBarFrame].size.height;
+#ifdef __IPHONE_8_0
     if ([UIDevice currentSystemVersionIsLessThan:8 :0 :0]) {
+#endif
         if (UIDeviceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
             statusBarHeight = [[UIApplication sharedApplication] statusBarFrame].size.width;
         }
+#ifdef __IPHONE_8_0
     }
+#endif
 
     return statusBarHeight > 0 ? statusBarHeight : 20;
 }
 
 - (CGFloat)getStatusBarWidth
 {
+#ifdef __IPHONE_8_0
     if ([UIDevice currentSystemVersionIsLessThan:8 :0 :0]) {
+#endif
         if (UIDeviceOrientationIsPortrait([UIApplication sharedApplication].statusBarOrientation)) {
             return [UIScreen mainScreen].bounds.size.width;
         }
         return [UIScreen mainScreen].bounds.size.height;
+#ifdef __IPHONE_8_0
     } else {
         return notificationWindow.bounds.size.width;
     }
+#endif
 }
 
 - (CGFloat)getStatusBarOffset
