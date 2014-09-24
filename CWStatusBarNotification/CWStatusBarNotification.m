@@ -8,6 +8,7 @@
 
 #import <QuartzCore/QuartzCore.h>
 #import "CWStatusBarNotification.h"
+#import "UIDevice-hardware.h"
 
 #define STATUS_BAR_ANIMATION_LENGTH 0.25f
 #define FONT_SIZE 12.0f
