@@ -16,6 +16,10 @@
 #define SCROLL_SPEED 40.0f
 #define SCROLL_DELAY 1.0f
 
+@interface StupidViewController : UIViewController
+
+@end
+
 @implementation CWWindowContainer
 
 - (UIView*) hitTest:(CGPoint)point withEvent:(UIEvent *)event {
@@ -336,7 +340,8 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
     self.notificationWindow.userInteractionEnabled = YES;
     self.notificationWindow.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.notificationWindow.windowLevel = UIWindowLevelStatusBar;
-    self.notificationWindow.rootViewController = [UIViewController new];
+    UIViewController *vc = [StupidViewController new];
+    self.notificationWindow.rootViewController = vc;
 }
 
 - (void)createStatusBarView
@@ -479,6 +484,18 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
             [self dismissNotification];
         });
     }];
+}
+
+@end
+
+@implementation StupidViewController
+
+- (BOOL) shouldAutorotate {
+    return YES;
+}
+
+- (NSUInteger) supportedInterfaceOrientations {
+    return UIInterfaceOrientationMaskAll;
 }
 
 @end
