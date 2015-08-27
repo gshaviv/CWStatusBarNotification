@@ -494,7 +494,7 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
     return YES;
 }
 
-- (NSUInteger) supportedInterfaceOrientations {
+- (UIInterfaceOrientationMask) supportedInterfaceOrientations {
     return UIInterfaceOrientationMaskAll;
 }
 
