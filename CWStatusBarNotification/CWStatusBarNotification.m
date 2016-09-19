@@ -3,93 +3,18 @@
 //  CWNotificationDemo
 //
 //  Created by Cezary Wojcik on 11/15/13.
-//  Copyright (c) 2013 Cezary Wojcik. All rights reserved.
+//  Copyright (c) 2015 Cezary Wojcik. All rights reserved.
 //
 
 #import <QuartzCore/QuartzCore.h>
 #import "CWStatusBarNotification.h"
-#import "UIDevice-hardware.h"
 
-#define STATUS_BAR_ANIMATION_LENGTH 0.25f
+#define SYSTEM_VERSION_LESS_THAN(v) ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] == NSOrderedAscending)
+
 #define FONT_SIZE 12.0f
 #define PADDING 10.0f
 #define SCROLL_SPEED 40.0f
 #define SCROLL_DELAY 1.0f
-
-@interface StupidViewController : UIViewController
-
-@end
-
-@implementation CWWindowContainer
-
-- (UIView*) hitTest:(CGPoint)point withEvent:(UIEvent *)event {
-    if (CGRectContainsPoint([[UIApplication sharedApplication] statusBarFrame], point)) {
-        return [super hitTest:point withEvent:event];
-    }
-
-    return nil;
-}
-
-@end
-
-# pragma mark - dispatch after with cancellation
-// adapted from: https://github.com/Spaceman-Labs/Dispatch-Cancel
-
-typedef void(^CWDelayedBlockHandle)(BOOL cancel);
-
-@interface NotificationWindow : UIWindow
-
-@end
-
-@implementation NotificationWindow
-
-- (UIView*) hitTest:(CGPoint)point withEvent:(UIEvent *)event {
-    if (CGRectContainsPoint([[UIApplication sharedApplication] statusBarFrame], point)) {
-        return [super hitTest:point withEvent:event];
-    }
-
-    return nil;
-}
-
-@end
-
-static CWDelayedBlockHandle perform_block_after_delay(CGFloat seconds, dispatch_block_t block)
-{
-	if (block == nil) {
-		return nil;
-	}
-
-	__block dispatch_block_t blockToExecute = [block copy];
-	__block CWDelayedBlockHandle delayHandleCopy = nil;
-
-	CWDelayedBlockHandle delayHandle = ^(BOOL cancel){
-		if (NO == cancel && nil != blockToExecute) {
-			dispatch_async(dispatch_get_main_queue(), blockToExecute);
-		}
-        
-		blockToExecute = nil;
-		delayHandleCopy = nil;
-	};
-
-	delayHandleCopy = [delayHandle copy];
-
-	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, seconds * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-		if (nil != delayHandleCopy) {
-			delayHandleCopy(NO);
-		}
-	});
-
-	return delayHandleCopy;
-};
-
-static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
-{
-	if (delayedHandle == nil) {
-		return;
-	}
-
-	delayedHandle(YES);
-}
 
 # pragma mark - ScrollLabel
 
@@ -116,7 +41,7 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
 - (CGFloat)scrollOffset
 {
     if (self.numberOfLines != 1) return 0;
-
+    
     CGRect insetRect = CGRectInset(self.bounds, PADDING, 0);
     return MAX(0, [self fullWidth] - insetRect.size.width);
 }
@@ -150,18 +75,117 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
 
 @end
 
+# pragma mark - CWWindowContainer
+
+@implementation CWWindowContainer
+
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
+{
+    CGFloat height;
+    if (SYSTEM_VERSION_LESS_THAN(@"8.0") && UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
+        height = [UIApplication sharedApplication].statusBarFrame.size.width;
+    } else {
+        height = [UIApplication sharedApplication].statusBarFrame.size.height;
+    }
+    if (point.y > 0 && point.y < (self.notificationHeight != 0.0 ? self.notificationHeight : height)) {
+        return [super hitTest:point withEvent:event];
+    }
+
+    return nil;
+}
+
+@end
+
+# pragma mark - CWViewController
+
+@interface CWViewController()
+
+@property (nonatomic, assign) NSInteger _cwViewControllerSupportedInterfaceOrientation;
+
+@end
+
+@implementation CWViewController
+
+@synthesize preferredStatusBarStyle = _preferredStatusBarStyle;
+
+- (UIStatusBarStyle)preferredStatusBarStyle
+{
+    return _preferredStatusBarStyle;
+}
+
+- (void)setSupportedInterfaceOrientations:(UIInterfaceOrientationMask)supportedInterfaceOrientations
+{
+    self._cwViewControllerSupportedInterfaceOrientation = supportedInterfaceOrientations;
+}
+
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations
+{
+    return self._cwViewControllerSupportedInterfaceOrientation;
+}
+
+- (BOOL)prefersStatusBarHidden
+{
+    CGFloat statusBarHeight = [[UIApplication sharedApplication] statusBarFrame].size.height;
+    return !(statusBarHeight > 0);
+}
+
+@end
+
+# pragma mark - dispatch after with cancellation
+// adapted from: https://github.com/Spaceman-Labs/Dispatch-Cancel
+
+typedef void(^CWDelayedBlockHandle)(BOOL cancel);
+
+static CWDelayedBlockHandle perform_block_after_delay(CGFloat seconds, dispatch_block_t block)
+{
+	if (block == nil) {
+		return nil;
+	}
+
+	__block dispatch_block_t blockToExecute = [block copy];
+	__block CWDelayedBlockHandle delayHandleCopy = nil;
+
+	CWDelayedBlockHandle delayHandle = ^(BOOL cancel){
+		if (NO == cancel && nil != blockToExecute) {
+			dispatch_async(dispatch_get_main_queue(), blockToExecute);
+		}
+
+		blockToExecute = nil;
+		delayHandleCopy = nil;
+	};
+
+	delayHandleCopy = [delayHandle copy];
+
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, seconds * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+		if (nil != delayHandleCopy) {
+			delayHandleCopy(NO);
+		}
+	});
+
+	return delayHandleCopy;
+};
+
+static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
+{
+	if (delayedHandle == nil) {
+		return;
+	}
+
+	delayedHandle(YES);
+}
 # pragma mark - CWStatusBarNotification
 
 @interface CWStatusBarNotification()
 
 @property (strong, nonatomic) UITapGestureRecognizer *tapGestureRecognizer;
 @property (strong, nonatomic) CWDelayedBlockHandle dismissHandle;
+@property (assign, nonatomic) BOOL isCustomView;
 
 @end
 
 @implementation CWStatusBarNotification
 
-@synthesize notificationLabel, notificationLabelBackgroundColor, notificationLabelTextColor, notificationWindow;
+@synthesize notificationLabel, notificationLabelBackgroundColor, notificationLabelTextColor, notificationLabelFont, notificationWindow, customView;
 
 @synthesize statusBarView;
 
@@ -171,24 +195,36 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
 {
     self = [super init];
     if (self) {
-        // set defaults
-        self.notificationLabelBackgroundColor = [[UIApplication sharedApplication] delegate].window.tintColor;
+        // set default
+        if ([[[UIApplication sharedApplication] delegate] respondsToSelector:@selector(window)]) {
+            self.notificationLabelBackgroundColor = [[UIApplication sharedApplication] delegate].window.tintColor;
+        } else {
+            self.notificationLabelBackgroundColor = [UIColor blackColor];
+        }
         self.notificationLabelTextColor = [UIColor whiteColor];
+        self.notificationLabelFont = [UIFont systemFontOfSize:FONT_SIZE];
+        self.notificationLabelHeight = 0.0;
+        self.customView = nil;
+        self.multiline = NO;
+        self.supportedInterfaceOrientations = [UIApplication sharedApplication].keyWindow.rootViewController.supportedInterfaceOrientations;
+        self.notificationAnimationDuration = 0.25;
         self.notificationStyle = CWNotificationStyleStatusBarNotification;
         self.notificationAnimationInStyle = CWNotificationAnimationStyleBottom;
         self.notificationAnimationOutStyle = CWNotificationAnimationStyleBottom;
         self.notificationAnimationType = CWNotificationAnimationTypeReplace;
         self.notificationIsDismissing = NO;
+        self.isCustomView = NO;
+        self.preferredStatusBarStyle = UIStatusBarStyleDefault;
 
         // create tap recognizer
         self.tapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(notificationTapped:)];
         self.tapGestureRecognizer.numberOfTapsRequired = 1;
 
         // create default tap block
-        @weaken(self);
+        __weak typeof(self) weakSelf = self;
         self.notificationTappedBlock = ^(void) {
-            if (!weak_self.notificationIsDismissing) {
-                [weak_self dismissNotification];
+            if (!weakSelf.notificationIsDismissing) {
+                [weakSelf dismissNotification];
             }
         };
     }
@@ -203,33 +239,18 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
         return self.notificationLabelHeight;
     }
     CGFloat statusBarHeight = [[UIApplication sharedApplication] statusBarFrame].size.height;
-#ifdef __IPHONE_8_0
-    if ([UIDevice currentSystemVersionIsLessThan:8 :0 :0]) {
-#endif
-        if (UIDeviceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
-            statusBarHeight = [[UIApplication sharedApplication] statusBarFrame].size.width;
-        }
-#ifdef __IPHONE_8_0
+    if (SYSTEM_VERSION_LESS_THAN(@"8.0") && UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
+        statusBarHeight = [[UIApplication sharedApplication] statusBarFrame].size.width;
     }
-#endif
-
     return statusBarHeight > 0 ? statusBarHeight : 20;
 }
 
 - (CGFloat)getStatusBarWidth
 {
-#ifdef __IPHONE_8_0
-    if ([UIDevice currentSystemVersionIsLessThan:8 :0 :0]) {
-#endif
-        if (UIDeviceOrientationIsPortrait([UIApplication sharedApplication].statusBarOrientation)) {
-            return [UIScreen mainScreen].bounds.size.width;
-        }
+    if (SYSTEM_VERSION_LESS_THAN(@"8.0") && UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
         return [UIScreen mainScreen].bounds.size.height;
-#ifdef __IPHONE_8_0
-    } else {
-        return notificationWindow.bounds.size.width;
     }
-#endif
+    return [[UIApplication sharedApplication] keyWindow].bounds.size.width;
 }
 
 - (CGFloat)getStatusBarOffset
@@ -238,6 +259,27 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
         return -20.0f;
     }
     return 0.0f;
+}
+
+- (CGFloat)getNavigationBarHeight
+{
+    if (UIInterfaceOrientationIsPortrait([UIApplication sharedApplication].statusBarOrientation) ||
+        UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        return 44.0f;
+    }
+    return 30.0f;
+}
+
+- (CGFloat)getNotificationLabelHeight
+{
+    switch (self.notificationStyle) {
+        case CWNotificationStyleStatusBarNotification:
+            return [self getStatusBarHeight];
+        case CWNotificationStyleNavigationBarNotification:
+            return [self getStatusBarHeight] + [self getNavigationBarHeight];
+        default:
+            return [self getStatusBarHeight];
+    }
 }
 
 - (CGRect)getNotificationLabelTopFrame
@@ -265,32 +307,12 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
     return CGRectMake(0, [self getStatusBarOffset], [self getStatusBarWidth], [self getNotificationLabelHeight]);
 }
 
-- (CGFloat)getNavigationBarHeight
-{
-    if (UIDeviceOrientationIsPortrait([UIApplication sharedApplication].statusBarOrientation) ||
-        UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
-        return 44.0f;
-    }
-    return 30.0f;
-}
-
-- (CGFloat)getNotificationLabelHeight
-{
-    switch (self.notificationStyle) {
-        case CWNotificationStyleStatusBarNotification:
-            return [self getStatusBarHeight];
-        case CWNotificationStyleNavigationBarNotification:
-            return [self getStatusBarHeight] + [self getNavigationBarHeight];
-        default:
-            return [self getStatusBarHeight];
-    }
-}
-
 # pragma mark - screen orientation change
 
 - (void)updateStatusBarFrame
 {
-    self.notificationLabel.frame = [self getNotificationLabelFrame];
+    UIView *view = self.isCustomView ? self.customView : self.notificationLabel;
+    view.frame = [self getNotificationLabelFrame];
     self.statusBarView.hidden = YES;
 }
 
@@ -303,6 +325,26 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
 
 # pragma mark - display helpers
 
+- (void)setupNotificationView:(UIView *)view
+{
+    view.clipsToBounds = YES;
+    view.userInteractionEnabled = YES;
+    [view addGestureRecognizer:self.tapGestureRecognizer];
+    switch (self.notificationAnimationInStyle) {
+        case CWNotificationAnimationStyleTop:
+            view.frame = [self getNotificationLabelTopFrame];
+            break;
+        case CWNotificationAnimationStyleBottom:
+            view.frame = [self getNotificationLabelBottomFrame];
+            break;
+        case CWNotificationAnimationStyleLeft:
+            view.frame = [self getNotificationLabelLeftFrame];
+            break;
+        case CWNotificationAnimationStyleRight:
+            view.frame = [self getNotificationLabelRightFrame];
+            break;
+    }
+}
 
 - (void)createNotificationLabelWithMessage:(NSString *)message
 {
@@ -311,37 +353,41 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
     self.notificationLabel.text = message;
     self.notificationLabel.textAlignment = NSTextAlignmentCenter;
     self.notificationLabel.adjustsFontSizeToFitWidth = NO;
-    self.notificationLabel.font = [UIFont systemFontOfSize:FONT_SIZE];
+    self.notificationLabel.font = self.notificationLabelFont;
     self.notificationLabel.backgroundColor = self.notificationLabelBackgroundColor;
     self.notificationLabel.textColor = self.notificationLabelTextColor;
-    self.notificationLabel.clipsToBounds = YES;
-    self.notificationLabel.userInteractionEnabled = YES;
-    [self.notificationLabel addGestureRecognizer:self.tapGestureRecognizer];
-    switch (self.notificationAnimationInStyle) {
-        case CWNotificationAnimationStyleTop:
-            self.notificationLabel.frame = [self getNotificationLabelTopFrame];
-            break;
-        case CWNotificationAnimationStyleBottom:
-            self.notificationLabel.frame = [self getNotificationLabelBottomFrame];
-            break;
-        case CWNotificationAnimationStyleLeft:
-            self.notificationLabel.frame = [self getNotificationLabelLeftFrame];
-            break;
-        case CWNotificationAnimationStyleRight:
-            self.notificationLabel.frame = [self getNotificationLabelRightFrame];
-            break;
-    }
+    [self setupNotificationView:self.notificationLabel];
+}
+
+- (void)createNotificationCustomView:(UIView *)view
+{
+    self.customView = [[UIView alloc] init];
+    // Doesn't use autoresizing masks so that we can create constraints below manually
+    [view setTranslatesAutoresizingMaskIntoConstraints:NO];
+    [self.customView addSubview:view];
+
+    // Setup Auto Layout constaints so that the custom view that is added is consrtained to be the same
+    // size as its superview, whose frame will be altered
+    [self.customView addConstraint:[NSLayoutConstraint constraintWithItem:view attribute:NSLayoutAttributeTrailing relatedBy:NSLayoutRelationEqual toItem:self.customView attribute:NSLayoutAttributeTrailing multiplier:1.0 constant:0.0]];
+    [self.customView addConstraint:[NSLayoutConstraint constraintWithItem:view attribute:NSLayoutAttributeLeading relatedBy:NSLayoutRelationEqual toItem:self.customView attribute:NSLayoutAttributeLeading multiplier:1.0 constant:0.0]];
+    [self.customView addConstraint:[NSLayoutConstraint constraintWithItem:view attribute:NSLayoutAttributeTop relatedBy:NSLayoutRelationEqual toItem:self.customView attribute:NSLayoutAttributeTop multiplier:1.0 constant:0.0]];
+    [self.customView addConstraint:[NSLayoutConstraint constraintWithItem:view attribute:NSLayoutAttributeBottom relatedBy:NSLayoutRelationEqual toItem:self.customView attribute:NSLayoutAttributeBottom multiplier:1.0 constant:0.0]];
+
+    [self setupNotificationView:self.customView];
 }
 
 - (void)createNotificationWindow
 {
-    self.notificationWindow = [[CWWindowContainer alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+    self.notificationWindow = [[CWWindowContainer alloc] initWithFrame:[[[UIApplication sharedApplication] keyWindow] bounds]];
     self.notificationWindow.backgroundColor = [UIColor clearColor];
     self.notificationWindow.userInteractionEnabled = YES;
     self.notificationWindow.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.notificationWindow.windowLevel = UIWindowLevelStatusBar;
-    UIViewController *vc = [StupidViewController new];
-    self.notificationWindow.rootViewController = vc;
+    CWViewController *rootViewController = [[CWViewController alloc] init];
+    [rootViewController setSupportedInterfaceOrientations:self.supportedInterfaceOrientations];
+    rootViewController.preferredStatusBarStyle = self.preferredStatusBarStyle;
+    self.notificationWindow.rootViewController = rootViewController;
+    self.notificationWindow.notificationHeight = [self getNotificationLabelHeight];
 }
 
 - (void)createStatusBarView
@@ -360,7 +406,8 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
 
 - (void)firstFrameChange
 {
-    self.notificationLabel.frame = [self getNotificationLabelFrame];
+    UIView *view = self.isCustomView ? self.customView : self.notificationLabel;
+    view.frame = [self getNotificationLabelFrame];
     switch (self.notificationAnimationInStyle) {
         case CWNotificationAnimationStyleTop:
             self.statusBarView.frame = [self getNotificationLabelBottomFrame];
@@ -379,14 +426,15 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
 
 - (void)secondFrameChange
 {
+    UIView *view = self.isCustomView ? self.customView : self.notificationLabel;
     switch (self.notificationAnimationOutStyle) {
         case CWNotificationAnimationStyleTop:
             self.statusBarView.frame = [self getNotificationLabelBottomFrame];
             break;
         case CWNotificationAnimationStyleBottom:
             self.statusBarView.frame = [self getNotificationLabelTopFrame];
-            self.notificationLabel.layer.anchorPoint = CGPointMake(0.5f, 1.0f);
-            self.notificationLabel.center = CGPointMake(self.notificationLabel.center.x, [self getStatusBarOffset] + [self getNotificationLabelHeight]);
+            view.layer.anchorPoint = CGPointMake(0.5f, 1.0f);
+            view.center = CGPointMake(view.center.x, [self getStatusBarOffset] + [self getNotificationLabelHeight]);
             break;
         case CWNotificationAnimationStyleLeft:
             self.statusBarView.frame = [self getNotificationLabelRightFrame];
@@ -399,19 +447,20 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
 
 - (void)thirdFrameChange
 {
+    UIView *view = self.isCustomView ? self.customView : self.notificationLabel;
     self.statusBarView.frame = [self getNotificationLabelFrame];
     switch (self.notificationAnimationOutStyle) {
         case CWNotificationAnimationStyleTop:
-            self.notificationLabel.frame = [self getNotificationLabelTopFrame];
+            view.frame = [self getNotificationLabelTopFrame];
             break;
         case CWNotificationAnimationStyleBottom:
-            self.notificationLabel.transform = CGAffineTransformMakeScale(1.0f, 0.0f);
+            view.transform = CGAffineTransformMakeScale(1.0f, 0.01f);
             break;
         case CWNotificationAnimationStyleLeft:
-            self.notificationLabel.frame = [self getNotificationLabelLeftFrame];
+            view.frame = [self getNotificationLabelLeftFrame];
             break;
         case CWNotificationAnimationStyleRight:
-            self.notificationLabel.frame = [self getNotificationLabelRightFrame];
+            view.frame = [self getNotificationLabelRightFrame];
             break;
     }
 }
@@ -421,6 +470,7 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
 - (void)displayNotificationWithMessage:(NSString *)message completion:(void (^)(void))completion
 {
     if (!self.notificationIsShowing) {
+        self.isCustomView = NO;
         self.notificationIsShowing = YES;
 
         // create UIWindow
@@ -439,12 +489,12 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
 
         // checking for screen orientation change
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateStatusBarFrame) name:UIApplicationDidChangeStatusBarOrientationNotification object:nil];
-        
+
         // checking for status bar change
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateStatusBarFrame) name:UIApplicationWillChangeStatusBarFrameNotification object:nil];
 
         // animate
-        [UIView animateWithDuration:STATUS_BAR_ANIMATION_LENGTH animations:^{
+        [UIView animateWithDuration:self.notificationAnimationDuration animations:^{
             [self firstFrameChange];
         } completion:^(BOOL finished) {
             double delayInSeconds = [self.notificationLabel scrollTime];
@@ -455,29 +505,7 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
     }
 }
 
-- (void)dismissNotification
-{
-    if (self.notificationIsShowing) {
-        cancel_delayed_block(self.dismissHandle);
-        self.notificationIsDismissing = YES;
-        [self secondFrameChange];
-        [UIView animateWithDuration:STATUS_BAR_ANIMATION_LENGTH animations:^{
-            [self thirdFrameChange];
-        } completion:^(BOOL finished) {
-            [self.notificationLabel removeFromSuperview];
-            [self.statusBarView removeFromSuperview];
-            [self.notificationWindow setHidden:YES];
-            self.notificationWindow = nil;
-            self.notificationLabel = nil;
-            self.notificationIsShowing = NO;
-            self.notificationIsDismissing = NO;
-            [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidChangeStatusBarOrientationNotification object:nil];
-            [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillChangeStatusBarFrameNotification object:nil];
-        }];
-    }
-}
-
-- (void)displayNotificationWithMessage:(NSString *)message forDuration:(CGFloat)duration
+- (void)displayNotificationWithMessage:(NSString *)message forDuration:(NSTimeInterval)duration
 {
     [self displayNotificationWithMessage:message completion:^{
         self.dismissHandle = perform_block_after_delay(duration, ^{
@@ -486,16 +514,95 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
     }];
 }
 
-@end
-
-@implementation StupidViewController
-
-- (BOOL) shouldAutorotate {
-    return YES;
+- (void)displayNotificationWithAttributedString:(NSAttributedString *)attributedString completion:(void (^)(void))completion
+{
+    [self displayNotificationWithMessage:[attributedString string] completion:completion];
+    [[self notificationLabel] setAttributedText:attributedString];
 }
 
-- (UIInterfaceOrientationMask) supportedInterfaceOrientations {
-    return UIInterfaceOrientationMaskAll;
+- (void)displayNotificationWithAttributedString:(NSAttributedString *)attributedString forDuration:(NSTimeInterval)duration
+{
+    [self displayNotificationWithMessage:[attributedString string] forDuration:duration];
+    [[self notificationLabel] setAttributedText:attributedString];
 }
 
+- (void)displayNotificationWithView:(UIView *)view completion:(void (^)(void))completion
+{
+    if (!self.notificationIsShowing) {
+        self.isCustomView = YES;
+        self.notificationIsShowing = YES;
+
+        // create window
+        [self createNotificationWindow];
+
+        // setup view
+        [self createNotificationCustomView:view];
+
+        // create status bar view
+        [self createStatusBarView];
+
+        // add view to window
+        UIView *rootView = self.notificationWindow.rootViewController.view;
+        [rootView addSubview:self.customView];
+        [rootView bringSubviewToFront:self.customView];
+        [self.notificationWindow setHidden:NO];
+
+        // checking for screen orientation change
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateStatusBarFrame) name:UIApplicationDidChangeStatusBarOrientationNotification object:nil];
+
+        // checking for status bar change
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateStatusBarFrame) name:UIApplicationWillChangeStatusBarFrameNotification object:nil];
+
+        // animate
+        [UIView animateWithDuration:self.notificationAnimationDuration animations:^{
+            [self firstFrameChange];
+        } completion:^(BOOL finished) {
+            [completion invoke];
+        }];
+    }
+}
+
+- (void)displayNotificationWithView:(UIView *)view forDuration:(NSTimeInterval)duration
+{
+    [self displayNotificationWithView:view completion:^{
+        self.dismissHandle = perform_block_after_delay(duration, ^{
+            [self dismissNotification];
+        });
+    }];
+}
+
+- (void)dismissNotificationWithCompletion:(void (^)(void))completion
+{
+    if (self.notificationIsShowing) {
+        cancel_delayed_block(self.dismissHandle);
+        self.notificationIsDismissing = YES;
+        [self secondFrameChange];
+        [UIView animateWithDuration:self.notificationAnimationDuration animations:^{
+            [self thirdFrameChange];
+        } completion:^(BOOL finished) {
+            UIView *view = self.isCustomView ? self.customView : self.notificationLabel;
+            [view removeFromSuperview];
+            [self.statusBarView removeFromSuperview];
+            [self.notificationWindow setHidden:YES];
+            self.notificationWindow = nil;
+            view = nil;
+            self.notificationIsShowing = NO;
+            self.notificationIsDismissing = NO;
+            [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidChangeStatusBarOrientationNotification object:nil];
+            [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillChangeStatusBarFrameNotification object:nil];
+            if (completion) {
+                completion();
+            }
+        }];
+    } else {
+        if (completion) {
+            completion();
+        }
+    }
+}
+
+- (void)dismissNotification
+{
+    [self dismissNotificationWithCompletion:nil];
+}
 @end
