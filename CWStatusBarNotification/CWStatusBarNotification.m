@@ -250,6 +250,11 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
     if (SYSTEM_VERSION_LESS_THAN(@"8.0") && UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
         return [UIScreen mainScreen].bounds.size.height;
     }
+    if (@available(iOS 11,*)) {
+    if ([[UIApplication sharedApplication] keyWindow].safeAreaInsets.top > 0) {
+        return 60;
+    }
+    }
     return [[UIApplication sharedApplication] keyWindow].bounds.size.width;
 }
 
@@ -343,6 +348,11 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
         case CWNotificationAnimationStyleRight:
             view.frame = [self getNotificationLabelRightFrame];
             break;
+    }
+    if (@available(iOS 11,*)) {
+        if ([[UIApplication sharedApplication] keyWindow].safeAreaInsets.top > 0) {
+            view.layer.cornerRadius = view.height / 2.;
+        }
     }
 }
 
