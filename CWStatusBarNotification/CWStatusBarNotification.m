@@ -238,11 +238,11 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
     if (self.notificationLabelHeight > 0) {
         return self.notificationLabelHeight;
     }
-    CGFloat statusBarHeight = [[UIApplication sharedApplication] statusBarFrame].size.height;
-    if (SYSTEM_VERSION_LESS_THAN(@"8.0") && UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
-        statusBarHeight = [[UIApplication sharedApplication] statusBarFrame].size.width;
+    if (@available(iOS 11,*)) {
+        return MAX([[UIApplication sharedApplication] keyWindow].safeAreaInsets.top, 20);
+    } else {
+         return MAX([[UIApplication sharedApplication] statusBarFrame].size.height, 20);
     }
-    return statusBarHeight > 0 ? statusBarHeight : 20;
 }
 
 - (CGFloat)getStatusBarWidth
@@ -252,7 +252,7 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
     }
     if (@available(iOS 11,*)) {
     if ([[UIApplication sharedApplication] keyWindow].safeAreaInsets.top > 0) {
-        return 60;
+        return 100;
     }
     }
     return [[UIApplication sharedApplication] keyWindow].bounds.size.width;
@@ -348,11 +348,6 @@ static void cancel_delayed_block(CWDelayedBlockHandle delayedHandle)
         case CWNotificationAnimationStyleRight:
             view.frame = [self getNotificationLabelRightFrame];
             break;
-    }
-    if (@available(iOS 11,*)) {
-        if ([[UIApplication sharedApplication] keyWindow].safeAreaInsets.top > 0) {
-            view.layer.cornerRadius = view.height / 2.;
-        }
     }
 }
 
